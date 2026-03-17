@@ -32,6 +32,33 @@ cd slime
 bash ../openclaw-opd/run_qwen3_4b_openclaw_opd.sh
 ```
 
+Both OPD launch scripts also support low-precision rollout/training via environment variables:
+
+- `INFER_PRECISION=bf16|fp8|int4`
+- `TRAIN_PRECISION=bf16|fp8`
+- `PRM_PRECISION=bf16|fp8|int4`
+
+FP8 rollout + FP8 training:
+
+```bash
+cd slime
+INFER_PRECISION=fp8 \
+TRAIN_PRECISION=fp8 \
+HF_CKPT_FP8=/path/to/Qwen3-4B-Thinking-2507-FP8 \
+REF_LOAD=/path/to/Qwen3-4B-Thinking-2507_torch_dist \
+bash ../openclaw-opd/run_qwen3_4b_openclaw_opd.sh
+```
+
+INT4 rollout with BF16 training:
+
+```bash
+cd slime
+INFER_PRECISION=int4 \
+HF_CKPT_INT4=/path/to/Qwen3-4B-Thinking-2507-INT4 \
+REF_LOAD=/path/to/Qwen3-4B-Thinking-2507_torch_dist \
+bash ../openclaw-opd/run_qwen3_4b_openclaw_opd.sh
+```
+
 ## Option B: Top-K Logits Distillation (SDFT/SDPO-style)
 
 Following [SDFT](https://arxiv.org/abs/2601.19897) and [SDPO](https://arxiv.org/abs/2601.20802), instead of single-token teacher targets, distill teacher top-K distribution per position.
@@ -62,6 +89,8 @@ Top-K is implemented as an additive extension:
 cd slime
 bash ../openclaw-opd/run_qwen3_4b_openclaw_opd_topk.sh
 ```
+
+The same `INFER_PRECISION`, `TRAIN_PRECISION`, `PRM_PRECISION`, `HF_CKPT_FP8`, and `HF_CKPT_INT4` knobs work for the Top-K script as well.
 
 Equivalent key args:
 

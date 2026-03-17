@@ -33,10 +33,94 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 SLIME_ROOT="$(cd -- "${SCRIPT_DIR}/../slime" &>/dev/null && pwd)"
 source "${SLIME_ROOT}/scripts/models/qwen3-4B.sh"
 
-HF_CKPT=${HF_CKPT:-/absolute/path/to/Qwen3-4B-Thinking-2507}
-REF_LOAD=${REF_LOAD:-${HF_CKPT}}
+normalize_infer_precision() {
+    local value="${1,,}"
+    case "${value}" in
+        bf16|fp8|int4)
+            printf '%s\n' "${value}"
+            ;;
+        *)
+            echo "Unsupported inference precision: ${1}. Expected one of: bf16, fp8, int4." >&2
+            exit 1
+            ;;
+    esac
+}
+
+normalize_train_precision() {
+    local value="${1,,}"
+    case "${value}" in
+        bf16|fp8)
+            printf '%s\n' "${value}"
+            ;;
+        *)
+            echo "Unsupported training precision: ${1}. Expected one of: bf16, fp8." >&2
+            exit 1
+            ;;
+    esac
+}
+
+select_checkpoint_path() {
+    local precision="$1"
+    local bf16_path="$2"
+    local fp8_path="$3"
+    local int4_path="$4"
+
+    case "${precision}" in
+        bf16)
+            printf '%s\n' "${bf16_path}"
+            ;;
+        fp8)
+            printf '%s\n' "${fp8_path}"
+            ;;
+        int4)
+            printf '%s\n' "${int4_path}"
+            ;;
+    esac
+}
+
+INFER_PRECISION="$(normalize_infer_precision "${INFER_PRECISION:-bf16}")"
+TRAIN_PRECISION="$(normalize_train_precision "${TRAIN_PRECISION:-bf16}")"
+PRM_PRECISION="$(normalize_infer_precision "${PRM_PRECISION:-bf16}")"
+
+HF_CKPT_BF16=${HF_CKPT_BF16:-/absolute/path/to/Qwen3-4B-Thinking-2507}
+HF_CKPT_FP8=${HF_CKPT_FP8:-/absolute/path/to/Qwen3-4B-Thinking-2507-FP8}
+HF_CKPT_INT4=${HF_CKPT_INT4:-/absolute/path/to/Qwen3-4B-Thinking-2507-INT4}
+REF_LOAD=${REF_LOAD:-/absolute/path/to/Qwen3-4B-Thinking-2507_torch_dist}
 SAVE_CKPT=${SAVE_CKPT:-/absolute/path/to/OpenClaw-RL/ckpt/qwen3-4b-openclaw-opd-topk}
-PRM_MODEL_PATH=${PRM_MODEL_PATH:-/absolute/path/to/Qwen3-4B-Thinking-2507}
+PRM_MODEL_PATH_BF16=${PRM_MODEL_PATH_BF16:-/absolute/path/to/Qwen3-4B-Thinking-2507}
+PRM_MODEL_PATH_FP8=${PRM_MODEL_PATH_FP8:-/absolute/path/to/Qwen3-4B-Thinking-2507-FP8}
+PRM_MODEL_PATH_INT4=${PRM_MODEL_PATH_INT4:-/absolute/path/to/Qwen3-4B-Thinking-2507-INT4}
+
+if [ "${TRAIN_PRECISION}" = "fp8" ] && [ "${INFER_PRECISION}" != "fp8" ]; then
+    echo "TRAIN_PRECISION=fp8 requires INFER_PRECISION=fp8 in the current launch script." >&2
+    exit 1
+fi
+
+if [ -n "${HF_CKPT:-}" ]; then
+    echo "HF_CKPT is explicitly set; skipping INFER_PRECISION-specific checkpoint selection."
+else
+    HF_CKPT="$(select_checkpoint_path "${INFER_PRECISION}" "${HF_CKPT_BF16}" "${HF_CKPT_FP8}" "${HF_CKPT_INT4}")"
+fi
+
+if [ -n "${PRM_MODEL_PATH:-}" ]; then
+    echo "PRM_MODEL_PATH is explicitly set; skipping PRM_PRECISION-specific checkpoint selection."
+else
+    PRM_MODEL_PATH="$(select_checkpoint_path "${PRM_PRECISION}" "${PRM_MODEL_PATH_BF16}" "${PRM_MODEL_PATH_FP8}" "${PRM_MODEL_PATH_INT4}")"
+fi
+
+FP8_TRAIN_ARGS=()
+if [ "${TRAIN_PRECISION}" = "fp8" ]; then
+    FP8_TRAIN_ARGS=(
+       --fp8-format e4m3
+       --fp8-recipe blockwise
+    )
+    export NVTE_FP8_BLOCK_SCALING_FP32_SCALES="${NVTE_FP8_BLOCK_SCALING_FP32_SCALES:-1}"
+fi
+
+echo "Policy inference precision: ${INFER_PRECISION} (${HF_CKPT})"
+echo "Training precision: ${TRAIN_PRECISION}"
+echo "PRM precision: ${PRM_PRECISION} (${PRM_MODEL_PATH})"
+echo "Reference Megatron checkpoint: ${REF_LOAD}"
 
 export SGLANG_API_KEY="${SGLANG_API_KEY}"
 export SERVED_MODEL_NAME="qwen3-4b"
@@ -169,6 +253,7 @@ ray job submit --address="http://127.0.0.1:8265" \
    ${ROLLOUT_ARGS[@]} \
    ${OPTIMIZER_ARGS[@]} \
    ${OPD_ARGS[@]} \
+   ${FP8_TRAIN_ARGS[@]} \
    ${PERF_ARGS[@]} \
    ${EVAL_ARGS[@]} \
    ${SGLANG_ARGS[@]} \
