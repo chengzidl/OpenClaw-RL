@@ -350,6 +350,31 @@ see [`./openclaw-tinker/README.md`](./openclaw-tinker/README.md) for setup detai
 
 </details>
 
+Low-precision modes are available in the launch scripts:
+
+- FP8 rollout + FP8 training:
+
+```bash
+cd slime
+INFER_PRECISION=fp8 \
+TRAIN_PRECISION=fp8 \
+HF_CKPT_FP8=/path/to/Qwen3-4B-Thinking-2507-FP8 \
+REF_LOAD=/path/to/Qwen3-4B-Thinking-2507_torch_dist \
+bash ../openclaw-rl/run_qwen3_4b_openclaw_rl.sh
+```
+
+- INT4 rollout with BF16 training:
+
+```bash
+cd slime
+INFER_PRECISION=int4 \
+HF_CKPT_INT4=/path/to/Qwen3-4B-Thinking-2507-INT4 \
+REF_LOAD=/path/to/Qwen3-4B-Thinking-2507_torch_dist \
+bash ../openclaw-rl/run_qwen3_4b_openclaw_rl.sh
+```
+
+By default the PRM stays on `bf16`; set `PRM_PRECISION=fp8|int4` plus `PRM_MODEL_PATH_FP8` / `PRM_MODEL_PATH_INT4` if you also want low-precision PRM serving.
+
 Once running, the model is served as an OpenAI-compatible API at:
 ```
 http://<HOST_IP>:30000/v1
@@ -457,8 +482,28 @@ That's it — start chatting with your OpenClaw agent. The RL server will automa
 
 </details>
 
+#### Configurations
 
+Before launching, set these important environment variables as needed:
 
+| Variable | Default | Description |
+|---|---|---|
+| `NUM_GPUS` | `8` | Total GPUs available on the machine |
+| `ACTOR_GPUS` | `4` | GPUs allocated to the training actor |
+| `ROLLOUT_GPUS` | `2` | GPUs allocated to rollout generation |
+| `PRM_GPUS` | `2` | GPUs allocated to the Process Reward Model |
+| `INFER_PRECISION` | `bf16` | Policy serving precision: `bf16`, `fp8`, or `int4` |
+| `TRAIN_PRECISION` | `bf16` | Training precision: `bf16` or `fp8` |
+| `PRM_PRECISION` | `bf16` | PRM serving precision: `bf16`, `fp8`, or `int4` |
+| `HF_CKPT_BF16` | (see script) | Path to the BF16 HuggingFace checkpoint |
+| `HF_CKPT_FP8` | (see script) | Path to the FP8 HuggingFace checkpoint |
+| `HF_CKPT_INT4` | (see script) | Path to the INT4 HuggingFace checkpoint |
+| `REF_LOAD` | (see script) | Path to the BF16 Megatron `torch_dist` reference checkpoint |
+| `PRM_MODEL_PATH_BF16` | (see script) | Path to the BF16 reward model checkpoint |
+| `PRM_MODEL_PATH_FP8` | (see script) | Path to the FP8 reward model checkpoint |
+| `PRM_MODEL_PATH_INT4` | (see script) | Path to the INT4 reward model checkpoint |
+| `SAVE_CKPT` | (see script) | Path to the saved Megatron checkpoint |
+| `SGLANG_API_KEY` | — | API key for the SGLang serving endpoint |
 
 ---
 
@@ -554,7 +599,5 @@ When using OpenClaw-RL, please do not provide sensitive personal information dur
 
 
 ---
-
-
 
 

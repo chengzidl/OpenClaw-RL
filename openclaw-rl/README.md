@@ -45,6 +45,37 @@ cd slime
 bash ../openclaw-rl/run_qwen3_4b_openclaw_rl.sh
 ```
 
+### Low-Precision Modes
+
+The launch script now supports independent rollout and training precision knobs:
+
+- `INFER_PRECISION=bf16|fp8|int4` selects the policy serving checkpoint used by SGLang.
+- `TRAIN_PRECISION=bf16|fp8` selects the Megatron training precision.
+- `PRM_PRECISION=bf16|fp8|int4` optionally changes the PRM serving checkpoint; it defaults to `bf16` to avoid reward-quality regressions.
+
+FP8 rollout + FP8 training:
+
+```bash
+cd slime
+INFER_PRECISION=fp8 \
+TRAIN_PRECISION=fp8 \
+HF_CKPT_FP8=/path/to/Qwen3-4B-Thinking-2507-FP8 \
+REF_LOAD=/path/to/Qwen3-4B-Thinking-2507_torch_dist \
+bash ../openclaw-rl/run_qwen3_4b_openclaw_rl.sh
+```
+
+INT4 rollout with BF16 training:
+
+```bash
+cd slime
+INFER_PRECISION=int4 \
+HF_CKPT_INT4=/path/to/Qwen3-4B-Thinking-2507-INT4 \
+REF_LOAD=/path/to/Qwen3-4B-Thinking-2507_torch_dist \
+bash ../openclaw-rl/run_qwen3_4b_openclaw_rl.sh
+```
+
+If you also want the PRM to use low-precision serving, set `PRM_PRECISION=fp8` or `PRM_PRECISION=int4` and provide the matching `PRM_MODEL_PATH_FP8` / `PRM_MODEL_PATH_INT4`.
+
 
 
 ## File Structure
