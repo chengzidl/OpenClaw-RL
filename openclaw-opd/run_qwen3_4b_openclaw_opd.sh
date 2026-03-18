@@ -114,6 +114,8 @@ if [ "${TRAIN_PRECISION}" = "fp8" ]; then
     FP8_TRAIN_ARGS=(
        --fp8-format e4m3
        --fp8-recipe blockwise
+       --transformer-impl transformer_engine
+       --bf16
     )
     export NVTE_FP8_BLOCK_SCALING_FP32_SCALES="${NVTE_FP8_BLOCK_SCALING_FP32_SCALES:-1}"
 fi
@@ -253,9 +255,11 @@ ray start --head --node-ip-address "${MASTER_ADDR}" --num-gpus "${NUM_GPUS}" --d
 
 RUNTIME_ENV_JSON="{
   \"env_vars\": {
-    \"PYTHONPATH\": \"/absolute/path/to/OpenClaw-RL/Megatron-LM/:${SCRIPT_DIR}:${SLIME_ROOT}\",
+    \"PYTHONPATH\": \"${SLIME_ROOT}/../Megatron-LM/:${SCRIPT_DIR}:${SLIME_ROOT}\",
     \"CUDA_DEVICE_MAX_CONNECTIONS\": \"1\",
-    \"OPENCLAW_EVAL_MODE\": \"${OPENCLAW_EVAL_MODE}\"
+    \"NVTE_FP8_BLOCK_SCALING_FP32_SCALES\": \"${NVTE_FP8_BLOCK_SCALING_FP32_SCALES:-0}\",
+    \"OPENCLAW_EVAL_MODE\": \"${OPENCLAW_EVAL_MODE}\",
+    \"PYTHONUNBUFFERED\": \"1\"
   }
 }"
 
